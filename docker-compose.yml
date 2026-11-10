@@ -1,0 +1,39 @@
+# X30 Live View: go2rtc (the cameras' RTSP → WebRTC / MSE) and the dashboard.
+#   cp .env.example .env    # the camera addresses
+#   docker compose up -d --build
+# Then open http://<this machine>:3000 (go2rtc's own page: :1984).
+name: x30-live-view
+
+services:
+  go2rtc:
+    image: alexxit/go2rtc:1.9.15
+    restart: unless-stopped
+    # WebRTC hands browsers this machine's own addresses (Linux). Without host
+    # networking, publish 1984/tcp and 8555/tcp+udp and set webrtc.candidates.
+    network_mode: host
+    environment:
+      FRONT_RTSP: ${FRONT_RTSP:-}
+      PTZ_RTSP: ${PTZ_RTSP:-}
+      THERMAL_RTSP: ${THERMAL_RTSP:-}
+      ACOUSTIC_RTSP: ${ACOUSTIC_RTSP:-}
+    volumes:
+      - ./docker/go2rtc.yaml:/config/go2rtc.yaml:ro
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  dashboard:
+    image: x30-live-view:local
+    build:
+      context: .
+      args:
+        # empty: the browser finds go2rtc on the host that serves the page
+        NEXT_PUBLIC_GO2RTC_URL: ${NEXT_PUBLIC_GO2RTC_URL:-}
+    restart: unless-stopped
+    depends_on:
+      - go2rtc
+    ports:
+      - "${DASHBOARD_BIND:-0.0.0.0}:${DASHBOARD_PORT:-3000}:3000"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

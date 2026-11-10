@@ -1,0 +1,32 @@
+# go2rtc for X30 Live View: pulls the four RTSP cameras and serves them to
+# the dashboard (WebRTC, or MSE over the WebSocket when WebRTC can't get
+# through). The camera addresses come from .env, which docker compose passes
+# in as environment variables (${VAR} below).
+#
+# H.265 camera and the picture stays black in a browser without HEVC?
+# Let go2rtc transcode that stream, e.g.:
+#   ptz: ffmpeg:${PTZ_RTSP}#video=h264#hardware
+
+api:
+  listen: ":1984"
+  # the dashboard is served from another port (or the desktop app)
+  origin: "*"
+
+rtsp:
+  # the same streams again for other players: rtsp://<host>:8554/front
+  listen: ":8554"
+
+webrtc:
+  listen: ":8555"
+  # In a bridge network (not host mode) tell browsers where WebRTC is:
+  # candidates:
+  #   - 192.168.1.10:8555
+
+streams:
+  front: ${FRONT_RTSP}
+  ptz: ${PTZ_RTSP}
+  thermal: ${THERMAL_RTSP}
+  acoustic: ${ACOUSTIC_RTSP}
+
+log:
+  level: info
