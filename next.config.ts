@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 /**
+ * The Tauri CLI sets TAURI_ENV_* for its beforeDevCommand / beforeBuildCommand:
+ * the desktop app gets a static export (../out, no Node server), the web
+ * build a standalone server for the Docker image.
+ */
+const DESKTOP = Boolean(process.env.TAURI_ENV_PLATFORM);
+
+/**
  * Hosts that may open the dev server besides localhost. Next.js blocks its
  * dev scripts for any other host, and the page then renders but never
  * becomes interactive. Allowed: this machine by IP, private networks (the
@@ -21,8 +28,9 @@ const DEV_ORIGINS = [
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  // A self-contained server for the Docker image (docker-compose.yml).
-  output: "standalone",
+  output: DESKTOP ? "export" : "standalone",
+  // a static export has no image optimizer (the logos are served as is)
+  images: { unoptimized: true },
   allowedDevOrigins: DEV_ORIGINS,
   devIndicators: { position: "bottom-right" },
 };

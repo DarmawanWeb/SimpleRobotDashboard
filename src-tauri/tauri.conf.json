@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "X30 Live View",
+  "version": "0.1.0",
+  "identifier": "id.ac.its.b401.x30liveview",
+  "build": {
+    "frontendDist": "../out",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "X30 Live View",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "backgroundColor": "#0c0d10"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Utility",
+    "publisher": "B401 ITS",
+    "copyright": "© 2026 ITS × Ezra Robotics",
+    "shortDescription": "Live cameras of the Deep Robotics Jueying X30",
+    "longDescription": "Front, PTZ, thermal and acoustic imaging cameras of the Jueying X30, played from a go2rtc server. Built by B401 ITS for ITS × Ezra Robotics.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
