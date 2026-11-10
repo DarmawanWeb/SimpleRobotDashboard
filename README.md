@@ -12,6 +12,8 @@ app.
 
 - **Four cameras, nothing else**: live picture, whether it plays (Live / Connecting / No
   signal, with the reason), how it arrives (WebRTC or MSE) and its size.
+- **Camera addresses in the app**: type each camera's RTSP address in **Settings (⚙) →
+  Cameras**, or keep them in `.env`.
 - **Layouts**: a 2 × 2 grid, or one camera large with the other three beside it; any camera
   can fill the window (double-click).
 - **Keeps itself running**: reconnects on its own after a dropped stream, a frozen picture or
@@ -29,12 +31,26 @@ thermal, acoustic      port 1984)               TV or desktop app)
 
 Browsers cannot play RTSP, so [go2rtc](https://github.com/AlexxIT/go2rtc) pulls the cameras
 and serves them to the page with low latency: WebRTC when it can get through, MSE over a
-WebSocket otherwise. The RTSP addresses live in go2rtc's config, not in the dashboard.
+WebSocket otherwise.
+
+## Where the RTSP Addresses Go
+
+Either place works; the app wins for the cameras it has an address for.
+
+1. **In the app: ⚙ → Cameras.** One field per camera, saved on that browser or desktop install
+   and handed to go2rtc over its API (`PUT /api/streams`). go2rtc's current address shows
+   greyed out in each field. go2rtc keeps them until it restarts; the app hands them over
+   again as soon as it sees go2rtc back.
+2. **In `.env`** (`FRONT_RTSP`, `PTZ_RTSP`, `THERMAL_RTSP`, `ACOUSTIC_RTSP`), read by go2rtc
+   through `docker/go2rtc.yaml`. Best for a fixed install: no browser needed.
+
+Set them in one place per robot: two screens with different addresses in their settings
+would keep overwriting each other.
 
 ## Quick Start (Docker)
 
 ```bash
-cp .env.example .env        # the cameras' RTSP addresses
+cp .env.example .env        # the cameras' RTSP addresses (or set them in the app later)
 docker compose up -d --build
 ```
 
@@ -82,8 +98,9 @@ pnpm desktop:build    # installers in src-tauri/target/release/bundle/
 
 The app ships a static export of the dashboard (Tauri sets `TAURI_ENV_*`, `next.config.ts`
 switches to `output: "export"`). It does not run go2rtc itself: on first start, open
-**Settings → Stream server** and enter the go2rtc address on the robot's network, e.g.
-`http://192.168.1.10:1984`, or bake one in with `NEXT_PUBLIC_GO2RTC_URL` when building.
+**Settings (⚙)**, enter the go2rtc address on the robot's network under **Stream server**
+(e.g. `http://192.168.1.10:1984`, or bake one in with `NEXT_PUBLIC_GO2RTC_URL` when
+building), and the cameras' RTSP addresses under **Cameras**.
 
 Pushing a tag `v*` builds the installers for macOS (Apple silicon and Intel), Windows and
 Linux on GitHub Actions and attaches them to a draft release (`.github/workflows/desktop.yml`).
@@ -92,6 +109,8 @@ Linux on GitHub Actions and attaches them to a draft release (`.github/workflows
 
 | Where | What |
 |---|---|
+| ⚙ → Cameras (in the app) | the cameras' RTSP addresses, handed to go2rtc |
+| ⚙ → Stream server (in the app) | the go2rtc address, if not the default |
 | `.env` (`FRONT_RTSP`, `PTZ_RTSP`, `THERMAL_RTSP`, `ACOUSTIC_RTSP`) | the cameras, read by go2rtc |
 | `docker/go2rtc.yaml` | go2rtc: stream names, ports, transcoding |
 | `NEXT_PUBLIC_GO2RTC_URL` | go2rtc as the browser reaches it (build time); empty: same host, port 1984 |
