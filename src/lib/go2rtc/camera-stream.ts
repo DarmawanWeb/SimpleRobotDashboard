@@ -140,8 +140,16 @@ export class CameraStreamElement extends VideoRTC {
     if (this.onmessage) {
       this.onmessage.status = (msg) => {
         if (msg.type === "error") {
-          // only WebRTC failed: MSE may still bring the picture
-          if (msg.value.includes("webrtc")) return;
+          if (msg.value.includes("webrtc")) {
+            // only WebRTC failed (VideoRTC closed the peer connection): MSE
+            // may still bring the picture. Forget the closed connection, or
+            // VideoRTC would never reconnect after the socket drops.
+            if (this.pc?.connectionState === "closed") {
+              this.pc = null;
+              this.pcState = WebSocket.CLOSED;
+            }
+            return;
+          }
           this.fail(msg.value);
         } else if (isMode(msg.type)) {
           this.update({ mode: msg.type });
