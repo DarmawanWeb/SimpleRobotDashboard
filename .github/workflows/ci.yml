@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm build
+
+      - name: Static export (what the desktop app ships)
+        run: pnpm build
+        env:
+          TAURI_ENV_PLATFORM: linux
+      - run: test -f out/index.html
+
+  docker:
+    needs: check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: cp .env.example .env && docker compose config --quiet
+      - run: docker build -t x30-live-view:ci .
+      - name: Serve the image
+        run: |
+          docker run -d --name x30 -p 127.0.0.1:3000:3000 x30-live-view:ci
+          curl -fsS --retry 15 --retry-delay 2 --retry-all-errors -o /dev/null http://127.0.0.1:3000/
