@@ -6,7 +6,7 @@ import { FullscreenButton } from "./fullscreen-button";
 import { LayoutSwitch } from "./layout-switch";
 import { LiveClock } from "./live-clock";
 import { LiveSummary } from "./live-summary";
-import { SettingsPopover } from "./settings-popover";
+import { SettingsPanel } from "./settings-panel";
 
 /**
  * The app and robot on the left, ITS × Ezra Robotics in the middle, the
@@ -38,7 +38,7 @@ export function TopBar({ logos }: { logos: BrandLogos }) {
           <LiveSummary className="hidden @lg:inline-flex" />
           <LiveClock className="hidden px-2 @5xl:flex" />
           <LayoutSwitch className="hidden @md:inline-flex" />
-          <SettingsPopover />
+          <SettingsPanel />
           <ThemeToggle />
           <FullscreenButton className="hidden @md:inline-flex" />
         </div>

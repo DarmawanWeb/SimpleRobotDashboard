@@ -68,3 +68,58 @@ export async function fetchServerInfo(
     return null;
   }
 }
+
+/** A go2rtc stream as GET /api/streams lists it. */
+interface StreamListing {
+  producers?: Array<{ url?: string }> | null;
+}
+
+/** The source URL of every stream go2rtc has (null when it does not answer). */
+export async function listStreamSources(
+  server: string,
+  signal?: AbortSignal,
+): Promise<Record<string, string> | null> {
+  try {
+    const res = await fetch(`${server}/api/streams`, {
+      signal,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as Record<string, StreamListing | null>;
+    return Object.fromEntries(
+      Object.entries(body).map(([name, stream]) => [
+        name,
+        stream?.producers?.[0]?.url ?? "",
+      ]),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Point a go2rtc stream at a camera (PUT /api/streams). go2rtc applies it at
+ * once, then tries to write it into its config file too: with a read-only
+ * config (docker-compose.yml) only that last part fails, and the stream
+ * still plays until go2rtc restarts (the dashboard sets it again then).
+ */
+export async function setStreamSource(
+  server: string,
+  name: string,
+  source: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const query = new URLSearchParams({ name, src: source });
+  let res: Response;
+  try {
+    res = await fetch(`${server}/api/streams?${query}`, { method: "PUT" });
+  } catch {
+    return { ok: false, error: "Can't reach the stream server" };
+  }
+  if (res.ok) return { ok: true };
+
+  const error = (await res.text()).trim();
+  if (/config|read-only|file system/i.test(error)) return { ok: true };
+  const sources = await listStreamSources(server);
+  if (sources?.[name] === source) return { ok: true };
+  return { ok: false, error: error || `HTTP ${res.status}` };
+}

@@ -4,5 +4,5 @@ export { Hotkeys } from "./hotkeys";
 export { LayoutSwitch } from "./layout-switch";
 export { LiveClock } from "./live-clock";
 export { LiveSummary } from "./live-summary";
-export { SettingsPopover } from "./settings-popover";
+export { SettingsPanel } from "./settings-panel";
 export { TopBar } from "./top-bar";

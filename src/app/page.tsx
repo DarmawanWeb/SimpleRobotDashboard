@@ -1,4 +1,5 @@
 import { CameraGrid } from "@/components/camera";
+import { ServerWatch } from "@/components/providers/server-watch";
 import { Footer, Hotkeys, TopBar } from "@/components/shell";
 import { getBrandLogos } from "@/lib/brand-logos";
 
@@ -14,6 +15,7 @@ export default function Page() {
       </main>
       <Footer logos={logos} />
       <Hotkeys />
+      <ServerWatch />
     </div>
   );
 }
