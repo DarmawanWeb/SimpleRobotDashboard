@@ -7,7 +7,17 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
+    "includes": [
+      "**",
+      "!node_modules",
+      "!.next",
+      "!out",
+      "!dist",
+      "!build",
+      "!src-tauri/target",
+      "!src-tauri/gen",
+      "!src/lib/go2rtc/vendor/video-rtc.js"
+    ]
   },
   "formatter": {
     "enabled": true,

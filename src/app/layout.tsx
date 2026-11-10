@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/jetbrains-mono";
 import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
+import { StoreHydration } from "@/components/providers/store-hydration";
 import { ThemeProvider } from "@/components/theme";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
@@ -32,7 +33,10 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <StoreHydration />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
