@@ -34,6 +34,9 @@ export declare class VideoRTC extends HTMLElement {
   pc: RTCPeerConnection | null;
   connectTS: number;
   mseCodecs: string;
+  /** Pending timers (0 when none) */
+  disconnectTID: number;
+  reconnectTID: number;
 
   ondata: ((data: ArrayBuffer) => void) | null;
   onmessage: Record<string, (msg: VideoRTCMessage) => void> | null;

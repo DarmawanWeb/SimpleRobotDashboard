@@ -1,10 +1,11 @@
 /**
  * <camera-stream>: go2rtc's player (VideoRTC) without its controls, plus a
  * status the dashboard can show. It tries WebRTC and MSE at once and keeps
- * whichever plays first, reconnects on its own, and reports through a
+ * whichever plays first, retries on its own, and reports through a
  * `camerastatus` event:
  *
- *   connecting → live (with mode and size) → offline (with the reason) → …
+ *   connecting → live (with mode and size)
+ *   any failure → offline (with the reason), retried until live again
  *
  * Browser only: the module defines a class that extends HTMLElement, so
  * import it dynamically from client code (components/camera/stream-player).
@@ -24,7 +25,7 @@ export const STATUS_EVENT = "camerastatus";
 const CONNECT_TIMEOUT_MS = 20_000;
 /** Picture frozen for this long while live: offline, try again. */
 const STALL_MS = 10_000;
-/** Wait before trying again after an error from go2rtc. */
+/** Wait before trying again after a failure. */
 const RETRY_MS = 5_000;
 const WATCHDOG_MS = 2_000;
 
@@ -38,7 +39,7 @@ export class CameraStreamElement extends VideoRTC {
   private current: StreamStatus = { ...IDLE_STATUS };
   private watchdog = 0;
   private retryTimer = 0;
-  private connectedAt = 0;
+  private attemptAt = 0;
   private lastTime = -1;
   private lastProgressAt = 0;
 
@@ -57,10 +58,26 @@ export class CameraStreamElement extends VideoRTC {
     return this.current;
   }
 
-  /** Drop the connection and start a fresh one. */
+  /**
+   * Drop the connection and start a fresh one, once the old socket has
+   * closed: VideoRTC's handlers of the old socket would otherwise act on
+   * the new one.
+   */
   reconnect(): void {
-    this.ondisconnect();
-    this.onconnect();
+    const old = this.ws;
+    this.teardown();
+    let started = false;
+    const start = () => {
+      if (started || !this.isConnected || this.ws || this.pc) return;
+      started = true;
+      this.onconnect();
+    };
+    if (old && old.readyState !== WebSocket.CLOSED) {
+      old.addEventListener("close", start, { once: true });
+      window.setTimeout(start, 1_000);
+    } else {
+      start();
+    }
   }
 
   override oninit(): void {
@@ -82,25 +99,39 @@ export class CameraStreamElement extends VideoRTC {
     const started = super.onconnect();
     if (!started) return false;
 
-    this.connectedAt = Date.now();
+    this.attemptAt = Date.now();
     this.lastTime = -1;
     this.clearRetry();
     this.startWatchdog();
-    this.update({ state: "connecting", error: null });
+    // retries after a failure stay "offline" until the picture is back
+    if (this.current.state !== "offline") {
+      this.update({ state: "connecting", error: null });
+    }
 
-    // a WebSocket that drops while it carries the video: go2rtc reconnects
-    this.ws?.addEventListener("close", () => {
-      if (this.pcState === WebSocket.OPEN || this.wsState === WebSocket.CLOSED)
+    const ws = this.ws;
+    let opened = false;
+    ws?.addEventListener("open", () => {
+      opened = true;
+    });
+    ws?.addEventListener("close", () => {
+      // closed on purpose (teardown) or replaced by WebRTC: nothing to report
+      if (this.wsState === WebSocket.CLOSED || this.pcState === WebSocket.OPEN)
         return;
-      this.update({ state: "connecting" });
+      // VideoRTC reconnects by itself after RECONNECT_TIMEOUT
+      if (!opened) {
+        this.update({
+          state: "offline",
+          error: "Can't reach the stream server",
+        });
+      } else if (this.current.state === "live") {
+        this.update({ state: "connecting" });
+      }
     });
     return true;
   }
 
   override ondisconnect(): void {
-    this.stopWatchdog();
-    this.clearRetry();
-    super.ondisconnect();
+    this.teardown();
     this.update({ ...IDLE_STATUS });
   }
 
@@ -123,6 +154,40 @@ export class CameraStreamElement extends VideoRTC {
   override onpcvideo(video2: HTMLVideoElement): void {
     super.onpcvideo(video2);
     if (this.pcState !== WebSocket.CLOSED) this.update({ mode: "webrtc" });
+  }
+
+  /**
+   * VideoRTC's ondisconnect, except that it clears the video without
+   * `src = ""`: that raises a media error, and VideoRTC answers media errors
+   * by closing whatever socket is open by then (the next connection's).
+   */
+  private teardown(): void {
+    this.stopWatchdog();
+    this.clearRetry();
+    if (this.reconnectTID) {
+      window.clearTimeout(this.reconnectTID);
+      this.reconnectTID = 0;
+    }
+
+    this.wsState = WebSocket.CLOSED;
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.pcState = WebSocket.CLOSED;
+    if (this.pc) {
+      for (const sender of this.pc.getSenders()) sender.track?.stop();
+      this.pc.close();
+      this.pc = null;
+    }
+
+    const video = this.video;
+    if (video) {
+      video.removeAttribute("src");
+      video.srcObject = null;
+      video.load();
+    }
   }
 
   private markLive(): void {
@@ -163,15 +228,10 @@ export class CameraStreamElement extends VideoRTC {
   }
 
   private check(): void {
+    if (this.retryTimer) return;
     const now = Date.now();
-    const { state } = this.current;
 
-    if (state === "connecting" && now - this.connectedAt > CONNECT_TIMEOUT_MS) {
-      this.fail("No picture from the camera");
-      return;
-    }
-
-    if (state === "live") {
+    if (this.current.state === "live") {
       const time = this.video.currentTime;
       if (time !== this.lastTime) {
         this.lastTime = time;
@@ -179,6 +239,8 @@ export class CameraStreamElement extends VideoRTC {
       } else if (now - this.lastProgressAt > STALL_MS) {
         this.fail("The picture stopped");
       }
+    } else if (now - this.attemptAt > CONNECT_TIMEOUT_MS) {
+      this.fail(this.current.error ?? "No picture from the camera");
     }
   }
 
